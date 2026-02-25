@@ -6,7 +6,8 @@ constToDatabase();
 const Blog = require('./models/blogModel');
 const {multer, storage} = require('./middleware/multerConfig')
 const upload = multer({storage : storage})
-const fs = require('fs')
+const fs = require('fs');
+const { isMainThread } = require('worker_threads');
 app.use(express.json())
 
 app.listen(process.env.PORT, ()=>{
@@ -14,14 +15,17 @@ app.listen(process.env.PORT, ()=>{
 });
 
 //API for POST
-app.post("/blog", upload.single("image"), async (req, res) => {
+app.post("/blog", upload.array("images"), async (req, res) => { //upload.single("image") for single image
     const { title, description } = req.body;
 
-    // Optional image
-    const image = req.file ? req.file.filename : null;
+    // // Optional image for single image
+    // const image = req.file ? req.file.filename : null;
+    // for multiple images
+    const images = req.files ? req.files.map(file => file.filename) : [];
+
 
     console.log(req.body);
-    console.log(req.file);
+    console.log(req.files);
 
     // Validation
     if (!title || !description) {
@@ -33,7 +37,7 @@ app.post("/blog", upload.single("image"), async (req, res) => {
     await Blog.create({
         title: title,
         description: description,
-        image: image
+        images: images
     });
 
     res.status(201).json({
@@ -61,5 +65,77 @@ app.get("/blog/:id", async(req, res)=>{
     res.status(200).json({
         message : "Single data fetched successfully",
         data : blog
+    })
+})
+//API to Update
+app.patch("/blog/:id",upload.single('image'), async(req, res)=>{
+    const id = req.params.id;
+    const{title, description} = req.body;
+    let imageName;
+    if (req.file){
+        imageName = req.file.filename
+        const blog = await Blog.findById(id);
+        const oldImage = blog.image //oldimage
+        fs.unlink(`storage/${oldImage}`, (err)=>{
+            if (err){
+                console.log(err)
+            } else {
+                console.log("File Deleted successfully")
+            }
+        })
+    }
+    // this update the blog
+    await Blog.findByIdAndUpdate(id, {
+        title : title,
+        description : description,
+        image : imageName
+    })
+    res.status(200).json({
+        message : "Update Successfully"
+    })
+    
+})
+
+//API to delete the blog
+// app.delete("/blog/:id", upload.single('image'), async(req, res)=>{
+//     const id = req.params.id;
+//     const blog = await Blog.findById(id);
+//     const imageName = blog.image;
+//     fs.unlink(`storage/${imageName}`, (err)=>{
+//         if (err){
+//             console.log(err)
+//         } else {
+//             console.log("Image Successfully!")
+//         }
+//     });
+//     await Blog.findByIdAndDelete(id);
+//     res.status(200).json({
+//         message : "Blog Delete Successfully"
+//     });
+// });
+
+//API to delete the blog
+app.delete('/blog/:id', async(req, res)=>{
+    const id = req.params.id;
+    const blog = Blog.findById(id);
+
+    if(!blog){
+        res.status(400).json({
+            message : "Data not found"
+        });
+    }
+    const imageName = blog.image;
+    //delete image
+    fs.unlink(`storage/${imageName}`, (err)=>{
+        if (err){
+            console.log(err)
+        } else {
+            console.log("Image delete successfully!")
+        }
+    })
+    //delete blog
+    await Blog.findByIdAndDelete(id);
+    res.status(200).json({
+        message : "Blog delete successfully!"
     })
 })
