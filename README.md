@@ -36,8 +36,6 @@ A RESTful API built with **Node.js**, **Express**, and **MongoDB Atlas** that al
 # Clone the repository
 git clone <https://github.com/milanrai14/Node.js-CRUD.git>
 
-# Navigate to the project folder
-cd blog-api
 
 # Install dependencies
 npm install
